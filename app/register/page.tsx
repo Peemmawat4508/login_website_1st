@@ -49,8 +49,10 @@ export default function RegisterPage() {
         }),
       });
 
+      const data = await res.json();
+      console.log('API response:', data); // Debug log
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || 'Something went wrong');
       }
 
