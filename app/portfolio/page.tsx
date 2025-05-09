@@ -34,29 +34,30 @@ interface PortfolioData {
   };
 }
 
+const defaultPortfolioData: PortfolioData = {
+  fullName: '',
+  title: '',
+  bio: '',
+  skills: [''],
+  education: [{ school: '', degree: '', year: '' }],
+  experience: [{ company: '', position: '', duration: '', description: '' }],
+  projects: [{ name: '', description: '', technologies: [''], link: '' }],
+  contact: {
+    email: '',
+    phone: '',
+    location: '',
+    linkedin: '',
+    github: '',
+  },
+};
+
 export default function PortfolioPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-
-  const [portfolioData, setPortfolioData] = useState<PortfolioData>({
-    fullName: '',
-    title: '',
-    bio: '',
-    skills: [''],
-    education: [{ school: '', degree: '', year: '' }],
-    experience: [{ company: '', position: '', duration: '', description: '' }],
-    projects: [{ name: '', description: '', technologies: [''], link: '' }],
-    contact: {
-      email: '',
-      phone: '',
-      location: '',
-      linkedin: '',
-      github: '',
-    },
-  });
+  const [portfolioData, setPortfolioData] = useState<PortfolioData>(defaultPortfolioData);
 
   useEffect(() => {
     // Check if user is logged in
@@ -72,8 +73,20 @@ export default function PortfolioPage() {
         const portfolioRes = await fetch('/api/portfolio');
         if (portfolioRes.ok) {
           const data = await portfolioRes.json();
-          if (data) {
-            setPortfolioData(data);
+          if (data && Object.keys(data).length > 0) {
+            // Merge the loaded data with default values
+            setPortfolioData({
+              ...defaultPortfolioData,
+              ...data,
+              skills: data.skills || defaultPortfolioData.skills,
+              education: data.education || defaultPortfolioData.education,
+              experience: data.experience || defaultPortfolioData.experience,
+              projects: data.projects || defaultPortfolioData.projects,
+              contact: {
+                ...defaultPortfolioData.contact,
+                ...(data.contact || {}),
+              },
+            });
           }
         }
       } catch (error) {
@@ -87,11 +100,40 @@ export default function PortfolioPage() {
     checkAuth();
   }, [router]);
 
+  const validateForm = () => {
+    if (!portfolioData.fullName.trim()) {
+      setError('Full name is required');
+      return false;
+    }
+    if (!portfolioData.title.trim()) {
+      setError('Title is required');
+      return false;
+    }
+    if (portfolioData.contact.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(portfolioData.contact.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    if (portfolioData.contact.linkedin && !portfolioData.contact.linkedin.startsWith('https://')) {
+      setError('LinkedIn URL must start with https://');
+      return false;
+    }
+    if (portfolioData.contact.github && !portfolioData.contact.github.startsWith('https://')) {
+      setError('GitHub URL must start with https://');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
     setSuccess('');
+
+    if (!validateForm()) {
+      setSaving(false);
+      return;
+    }
 
     try {
       const res = await fetch('/api/portfolio', {
@@ -103,7 +145,8 @@ export default function PortfolioPage() {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to save portfolio data');
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save portfolio data');
       }
 
       setSuccess('Portfolio updated successfully!');
@@ -136,8 +179,9 @@ export default function PortfolioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+        <p className="mt-4 text-gray-600">Loading your portfolio...</p>
       </div>
     );
   }
@@ -371,6 +415,120 @@ export default function PortfolioPage() {
                           setPortfolioData(prev => ({ ...prev, experience: newExperience }));
                         }}
                         rows={3}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Projects */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-900">Projects</h2>
+                <button
+                  type="button"
+                  onClick={() => addItem('projects')}
+                  className="text-indigo-600 hover:text-indigo-500"
+                >
+                  + Add Project
+                </button>
+              </div>
+              {portfolioData.projects.map((project, index) => (
+                <div key={index} className="space-y-4 p-4 border rounded-lg">
+                  <div className="flex justify-between">
+                    <h3 className="text-lg font-medium text-gray-900">Project #{index + 1}</h3>
+                    <button
+                      type="button"
+                      onClick={() => removeItem('projects', index)}
+                      className="text-red-600 hover:text-red-500"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Project Name</label>
+                      <input
+                        type="text"
+                        value={project.name}
+                        onChange={(e) => {
+                          const newProjects = [...portfolioData.projects];
+                          newProjects[index] = { ...project, name: e.target.value };
+                          setPortfolioData(prev => ({ ...prev, projects: newProjects }));
+                        }}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Description</label>
+                      <textarea
+                        value={project.description}
+                        onChange={(e) => {
+                          const newProjects = [...portfolioData.projects];
+                          newProjects[index] = { ...project, description: e.target.value };
+                          setPortfolioData(prev => ({ ...prev, projects: newProjects }));
+                        }}
+                        rows={3}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Technologies</label>
+                      <div className="space-y-2">
+                        {project.technologies.map((tech, techIndex) => (
+                          <div key={techIndex} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={tech}
+                              onChange={(e) => {
+                                const newProjects = [...portfolioData.projects];
+                                const newTech = [...project.technologies];
+                                newTech[techIndex] = e.target.value;
+                                newProjects[index] = { ...project, technologies: newTech };
+                                setPortfolioData(prev => ({ ...prev, projects: newProjects }));
+                              }}
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newProjects = [...portfolioData.projects];
+                                const newTech = project.technologies.filter((_, i) => i !== techIndex);
+                                newProjects[index] = { ...project, technologies: newTech };
+                                setPortfolioData(prev => ({ ...prev, projects: newProjects }));
+                              }}
+                              className="text-red-600 hover:text-red-500"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newProjects = [...portfolioData.projects];
+                            const newTech = [...project.technologies, ''];
+                            newProjects[index] = { ...project, technologies: newTech };
+                            setPortfolioData(prev => ({ ...prev, projects: newProjects }));
+                          }}
+                          className="text-indigo-600 hover:text-indigo-500"
+                        >
+                          + Add Technology
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Project Link</label>
+                      <input
+                        type="url"
+                        value={project.link}
+                        onChange={(e) => {
+                          const newProjects = [...portfolioData.projects];
+                          newProjects[index] = { ...project, link: e.target.value };
+                          setPortfolioData(prev => ({ ...prev, projects: newProjects }));
+                        }}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                       />
                     </div>
