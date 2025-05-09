@@ -1,35 +1,63 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+const portfolioSchema = new mongoose.Schema({
+  fullName: String,
+  title: String,
+  bio: String,
+  skills: [String],
+  education: [{
+    school: String,
+    degree: String,
+    year: String
+  }],
+  experience: [{
+    company: String,
+    position: String,
+    duration: String,
+    description: String
+  }],
+  projects: [{
+    name: String,
+    description: String,
+    technologies: [String],
+    link: String
+  }],
+  contact: {
+    email: String,
+    phone: String,
+    location: String,
+    linkedin: String,
+    github: String
+  }
+});
+
 export interface IUser extends mongoose.Document {
   email: string;
   password: string;
   name?: string;
   createdAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  portfolio: mongoose.Schema.Types.ObjectId;
 }
 
 const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Please provide a name'],
+  },
   email: {
     type: String,
     required: [true, 'Please provide an email'],
     unique: true,
-    lowercase: true,
-    trim: true,
   },
   password: {
     type: String,
     required: [true, 'Please provide a password'],
-    minlength: [6, 'Password must be at least 6 characters long'],
   },
-  name: {
-    type: String,
-    trim: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+  portfolio: portfolioSchema
+}, {
+  timestamps: true,
 });
 
 // Hash password before saving
@@ -50,4 +78,6 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export default mongoose.models.User || mongoose.model<IUser>('User', userSchema); 
+const User = mongoose.models.User || mongoose.model<IUser>('User', userSchema);
+
+export default User; 
